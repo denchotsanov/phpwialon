@@ -1,0 +1,15 @@
+{
+    "name": "denchotsanov/phpwialon",
+    "description": "Wialon Remote API PHP library.",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Dencho Tsanov",
+            "email": "tsanov.dencho@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=5.4.0"
+    }
+}
