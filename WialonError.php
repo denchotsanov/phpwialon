@@ -1,5 +1,5 @@
 <?php
-
+namespace denchotsanov;
 /*
  * Wialon errorCode to textMessage converter
  */

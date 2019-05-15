@@ -1,5 +1,6 @@
 <?php
 
+namespace denchotsanov;
 
 class Wialon
 {
