@@ -8,14 +8,31 @@ class Wialon
     private $sid = null;
     private $base_api_url = '';
     private $default_params = [];
+    private $ver = 1;
+
+    private $_account = null;
 
     /// METHODS
+
     /** constructor */
-    function __construct($scheme = 'http', $host = 'hst-api.wialon.com', $port = '', $sid = '', array $extra_params = [])
-    {
-        $this->sid = '';
-        $this->default_params = array_replace([], (array) $extra_params);
-        $this->base_api_url = sprintf('%s://%s%s/ajax.html?', $scheme, $host, mb_strlen($port) > 0 ? ':' . $port : '');
+    function __construct(
+        $scheme = 'http',
+        $host = 'hst-api.wialon.com',
+        $port = '',
+        $ver = 1,
+        $sid = '',
+        array $extra_params = []
+    ) {
+        $this->sid = $sid;
+        $this->ver = $ver;
+        $this->default_params = array_replace([], (array)$extra_params);
+        if ($ver == 1) {
+            $this->base_api_url = sprintf('%s://%s%s/ajax.html?', $scheme, $host,
+                mb_strlen($port) > 0 ? ':' . $port : '');
+        } else {
+            $this->base_api_url = sprintf('%s://%s%s/wialon/ajax.html?', $scheme, $host,
+                mb_strlen($port) > 0 ? ':' . $port : '');
+        }
     }
 
     /** sid setter */
@@ -46,20 +63,21 @@ class Wialon
         $url = $this->base_api_url;
 
         $params = [
-            'svc'=> preg_replace('\'_\'', '/', $action, 1),
-            'params'=> $args,
-            'sid'=> $this->sid
+            'svc' => preg_replace('\'_\'', '/', $action, 1),
+            'params' => $args,
         ];
-
-        $all_params = array_replace($this->default_params , $params);
+        if ($this->sid) {
+            $params[($this->ver == 1 ? 'ssid' : 'sid')] = $this->sid;
+        }
+        $all_params = array_replace($this->default_params, $params);
 
         $str = '';
         foreach ($all_params as $k => $v) {
-            if(mb_strlen($str) > 0) {
+            if (mb_strlen($str) > 0) {
                 $str .= '&';
             }
 
-            $str .= $k . '=' . ( is_object($v) ? json_encode($v) : $v);
+            $str .= $k . '=' . (is_object($v) ? json_encode($v) : $v);
         }
 
         /* cUrl magic */
@@ -75,18 +93,17 @@ class Wialon
 
         $result = curl_exec($ch);
 
-        if($result === false) {
-            $result = '{"error":-1,"message":'.curl_error($ch).'}';
+        if ($result === false) {
+            $result = '{"error":-1,"message":' . curl_error($ch) . '}';
         }
 
         curl_close($ch);
-        return $result;
+        return json_decode($result);
     }
 
     /*
      * Login
-     * user - wialon username
-     * password - password
+     * token - server token
      * return - server response
      */
     public function loginByToken($token)
@@ -97,26 +114,38 @@ class Wialon
 
         $result = $this->token_login(json_encode($data));
 
-        $json_result = json_decode($result, true);
-
-        if(isset($json_result['eid'])) {
-            $this->sid = $json_result['eid'];
+        if (isset($result->eid)) {
+            $this->sid = $result->eid;
         }
 
+        $this->_account = $result;
         return $result;
     }
-    public function loginByUser($username,$password) {
+    /*
+         * Login
+         * user - wialon username
+         * password - password
+         * return - server response
+         */
+    public function loginByUser($username, $password)
+    {
         $data = [
-            'username'=>$username,
-            'password'=>$password
+            'user' => $username,
+            'password' => $password
         ];
-        $result = $this->core_logon(json_encode($data));
-        $json_result = json_decode($result, true);
 
-        if(isset($json_result['eid'])) {
-            $this->sid = $json_result['eid'];
+        $result = $this->core_login(json_encode($data));
+
+        if ($this->ver == 1) {
+            if (isset($result->ssid)) {
+                $this->sid = $result->ssid;
+            }
+        } else {
+            if (isset($result->eid)) {
+                $this->sid = $result->eid;
+            }
         }
-
+        $this->_account = $result;
         return $result;
     }
 
@@ -127,9 +156,7 @@ class Wialon
     public function logout()
     {
         $result = $this->core_logout();
-        $json_result = json_decode($result, true);
-
-        if($json_result && $json_result['error'] == 0) {
+        if ($result && $result->error == 0) {
             $this->sid = '';
         }
 
